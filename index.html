@@ -1,20 +1,11 @@
 <script>
-    // 1. 보안을 위해 코드에서 키를 지웁니다. 
-    // 브라우저 저장소(localStorage)에서 키를 가져오거나 없으면 물어봅니다.
-    let API_KEY = localStorage.getItem('gemini_api_key');
-
-    if (!API_KEY) {
-        API_KEY = prompt("AIzaSyDhSfxbTKCGv_wIYAT2qtDm3GJen8H_Tcc");
-        if (API_KEY) {
-            localStorage.setItem('gemini_api_key', API_KEY);
-        }
-    }
+    // 1. 실제 발급받은 API 키를 꼭 확인해서 넣어주세요!
+    const API_KEY = 'AIzaSyDhSfxbTKCGv_wIYAT2qtDm3GJen8H_Tcc'; 
 
     const video = document.getElementById('webcam');
     const resultDiv = document.getElementById('result');
     const identifyBtn = document.getElementById('identifyBtn');
 
-    // 카메라 시작
     async function startCamera() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -27,13 +18,7 @@
     }
     startCamera();
 
-    // 분석 함수
     async function identifyEquipment() {
-        if (!API_KEY) {
-            alert("API Key가 없습니다. 페이지를 새로고침하여 입력해주세요.");
-            return;
-        }
-
         identifyBtn.disabled = true;
         identifyBtn.innerText = "분석 중...";
         resultDiv.innerHTML = "<span>AI가 사진을 분석하고 있습니다...</span>";
@@ -45,7 +30,7 @@
             canvas.getContext('2d').drawImage(video, 0, 0);
             const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
 
-            // 최신 표준 주소 (v1beta 사용)
+            // 2. 이 주소가 2026년 기준 가장 표준적인 API 호출 주소입니다.
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
 
             const response = await fetch(url, {
@@ -54,7 +39,7 @@
                 body: JSON.stringify({
                     contents: [{
                         parts: [
-                            { text: "너는 화학 교사야. 사진 속 실험기구의 이름과 고등학생 수준의 사용법을 친절하게 설명해줘." },
+                            { text: "너는 베테랑 화학 교사야. 사진 속 실험기구의 이름, 고교 수준의 사용법, 그리고 취급 시 주의사항을 초보 학생도 이해하기 쉽게 설명해줘." },
                             { inline_data: { mime_type: "image/jpeg", data: base64Image } }
                         ]
                     }]
@@ -63,13 +48,13 @@
 
             const data = await response.json();
             
-            if (data.error) {
-                // 키가 또 막혔거나 오류가 나면 저장된 키를 지우고 에러 표시
-                if(data.error.code === 403) localStorage.removeItem('gemini_api_key');
-                throw new Error(data.error.message);
+            if (data.candidates && data.candidates[0].content) {
+                resultDiv.innerText = data.candidates[0].content.parts[0].text;
+            } else {
+                // 에러 발생 시 상세 메시지 출력
+                const errorMsg = data.error ? data.error.message : "응답 형식이 잘못되었습니다.";
+                throw new Error(errorMsg);
             }
-
-            resultDiv.innerText = data.candidates[0].content.parts[0].text;
 
         } catch (err) {
             resultDiv.innerHTML = `<span style="color:red">오류 발생: ${err.message}</span>`;
@@ -77,11 +62,5 @@
             identifyBtn.disabled = false;
             identifyBtn.innerText = "실험기구 확인하기";
         }
-    }
-
-    // 키 초기화 버튼 (필요시 사용)
-    function resetKey() {
-        localStorage.removeItem('gemini_api_key');
-        location.reload();
     }
 </script>
